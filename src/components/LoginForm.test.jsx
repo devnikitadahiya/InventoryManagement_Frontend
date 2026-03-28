@@ -48,6 +48,9 @@ describe('LoginForm', () => {
 
     render(<LoginForm onLoginSuccess={onLoginSuccess} />);
 
+    await userEvent.type(screen.getByLabelText(/email/i), 'admin@inventory.com');
+    await userEvent.type(screen.getByLabelText(/password/i), 'wrong-password');
+
     await userEvent.click(screen.getByRole('button', { name: /login/i }));
 
     await waitFor(() => {
