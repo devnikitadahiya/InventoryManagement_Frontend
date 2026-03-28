@@ -17,7 +17,8 @@ import { apiRequest } from '../api';
 
 describe('Module components', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
   });
 
   test('ProductsTab loads and renders product list', async () => {
@@ -134,8 +135,8 @@ describe('Module components', () => {
     apiRequest.mockResolvedValue({
       success: true,
       data: [
-        { user_id: 1, full_name: 'Admin User', email: 'admin@inventory.com', role: 'admin' },
-        { user_id: 2, full_name: 'Staff One', email: 'staff@inventory.com', role: 'staff' },
+        { user_id: 1, full_name: 'Admin User', email: 'admin@inventory.com', role: 'admin', is_active: true },
+        { user_id: 2, full_name: 'Staff One', email: 'staff@inventory.com', role: 'staff', is_active: true },
       ],
     });
 
@@ -153,7 +154,7 @@ describe('Module components', () => {
     });
 
     // Admin sees the role dropdown (combobox)
-    expect(screen.getByRole('combobox')).toBeInTheDocument();
+    expect(screen.getAllByRole('combobox')).toHaveLength(3);
   });
 
   test('UsersTab shows locked Staff role for manager', async () => {
@@ -168,6 +169,57 @@ describe('Module components', () => {
     // Manager sees a read-only Staff input, not a dropdown
     expect(screen.queryByRole('combobox')).toBeNull();
     expect(screen.getByDisplayValue('Staff')).toBeInTheDocument();
+  });
+
+  test('UsersTab lets admin update role and deactivate a user', async () => {
+    apiRequest
+      .mockResolvedValueOnce({
+        success: true,
+        data: [
+          { user_id: 1, full_name: 'Admin User', email: 'admin@inventory.com', role: 'admin', is_active: true },
+          { user_id: 2, full_name: 'Staff One', email: 'staff@inventory.com', role: 'staff', is_active: true },
+        ],
+      })
+      .mockResolvedValueOnce({ success: true })
+      .mockResolvedValueOnce({
+        success: true,
+        data: [
+          { user_id: 1, full_name: 'Admin User', email: 'admin@inventory.com', role: 'admin', is_active: true },
+          { user_id: 2, full_name: 'Staff One', email: 'staff@inventory.com', role: 'manager', is_active: true },
+        ],
+      })
+      .mockResolvedValueOnce({ success: true })
+      .mockResolvedValueOnce({
+        success: true,
+        data: [
+          { user_id: 1, full_name: 'Admin User', email: 'admin@inventory.com', role: 'admin', is_active: true },
+          { user_id: 2, full_name: 'Staff One', email: 'staff@inventory.com', role: 'manager', is_active: false },
+        ],
+      });
+
+    render(<UsersTab token="token-6" user={{ id: 1, email: 'admin@inventory.com', role: 'admin' }} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('staff@inventory.com')).toBeInTheDocument();
+    });
+
+    const roleSelector = screen.getByLabelText('Role for staff@inventory.com');
+    await userEvent.selectOptions(roleSelector, 'manager');
+
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith('token-6', '/auth/users/2/role', {
+        method: 'PUT',
+        body: JSON.stringify({ role: 'manager' }),
+      });
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Deactivate staff@inventory.com' }));
+
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith('token-6', '/auth/users/2/deactivate', {
+        method: 'PUT',
+      });
+    });
   });
 
   test('AlertsTab renders mapped low stock alerts', async () => {
