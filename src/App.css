@@ -198,6 +198,11 @@ th {
   color: #374151;
 }
 
+tr.inactive-row td {
+  opacity: 0.45;
+  font-style: italic;
+}
+
 .actions-cell {
   display: flex;
   gap: 0.4rem;

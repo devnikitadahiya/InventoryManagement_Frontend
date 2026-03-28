@@ -160,7 +160,7 @@ function UsersTab({ token, user }) {
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.user_id}>
+                <tr key={u.user_id} className={u.is_active ? '' : 'inactive-row'}>
                   <td>{u.full_name}</td>
                   <td>{u.email}</td>
                   <td>
