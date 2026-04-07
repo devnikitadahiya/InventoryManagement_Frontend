@@ -4,7 +4,7 @@ import './App.css';
 import LoginForm from './components/LoginForm';
 import Dashboard from './components/Dashboard';
 import { TOKEN_KEY } from './config';
-import { apiRequest } from './api';
+import { apiRequest, UNAUTHORIZED_EVENT } from './api';
 
 function App() {
   const savedToken = localStorage.getItem(TOKEN_KEY);
@@ -38,6 +38,19 @@ function App() {
     resolveUserSession();
   }, [session.token]);
 
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      localStorage.removeItem(TOKEN_KEY);
+      setSession({ token: '', user: null });
+      setIsCheckingSession(false);
+    };
+
+    globalThis.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
+    return () => {
+      globalThis.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
+    };
+  }, []);
+
   const handleLoginSuccess = ({ token, user }) => {
     setSession({ token, user });
     setIsCheckingSession(false);
@@ -61,14 +74,14 @@ function App() {
 
   return (
     <BrowserRouter>
-      {!session.token ? (
-        <LoginForm onLoginSuccess={handleLoginSuccess} />
-      ) : (
+      {session.token ? (
         <Dashboard
           token={session.token}
           user={session.user}
           onLogout={handleLogout}
         />
+      ) : (
+        <LoginForm onLoginSuccess={handleLoginSuccess} />
       )}
     </BrowserRouter>
   );

@@ -1,11 +1,14 @@
+/* eslint-disable react/prop-types */
 import { useCallback, useEffect, useState } from 'react';
 import { apiRequest } from '../api';
 
 function InventoryTab({ token }) {
   const [statusData, setStatusData] = useState(null);
   const [lowStock, setLowStock] = useState([]);
-  const [historyProductId, setHistoryProductId] = useState('');
+  const [historyLookup, setHistoryLookup] = useState('');
   const [historyData, setHistoryData] = useState([]);
+  const [historyProduct, setHistoryProduct] = useState(null);
+  const [historyFetched, setHistoryFetched] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -36,14 +39,34 @@ function InventoryTab({ token }) {
     event.preventDefault();
     setErrorMessage('');
     setHistoryData([]);
+    setHistoryProduct(null);
+    setHistoryFetched(false);
 
-    if (!historyProductId) {
+    const lookup = historyLookup.trim();
+    if (!lookup) {
       return;
     }
 
+    let resolvedProductId = Number.parseInt(lookup, 10);
+
+    if (!Number.isInteger(resolvedProductId) || resolvedProductId <= 0) {
+      const matchedProduct = (statusData?.items || []).find(
+        (item) => String(item.sku || '').toLowerCase() === lookup.toLowerCase()
+      );
+
+      if (!matchedProduct) {
+        setErrorMessage('Enter a valid Product ID or SKU from the list');
+        return;
+      }
+
+      resolvedProductId = matchedProduct.product_id;
+    }
+
     try {
-      const payload = await apiRequest(token, `/inventory/history/${historyProductId}`);
+      const payload = await apiRequest(token, `/inventory/history/${resolvedProductId}`);
       setHistoryData(payload.data?.history || []);
+      setHistoryProduct(payload.data?.product || null);
+      setHistoryFetched(true);
     } catch (error) {
       setErrorMessage(error.message);
     }
@@ -86,6 +109,7 @@ function InventoryTab({ token }) {
           <table>
             <thead>
               <tr>
+                <th>Product ID</th>
                 <th>SKU</th>
                 <th>Name</th>
                 <th>Stock</th>
@@ -95,6 +119,7 @@ function InventoryTab({ token }) {
             <tbody>
               {lowStock.map((item) => (
                 <tr key={item.product_id}>
+                  <td>{item.product_id}</td>
                   <td>{item.sku}</td>
                   <td>{item.product_name}</td>
                   <td>{item.current_stock}</td>
@@ -110,38 +135,63 @@ function InventoryTab({ token }) {
         <h3>Stock History</h3>
         <form className="inline-form" onSubmit={fetchHistory}>
           <input
-            type="number"
-            placeholder="Enter product id"
-            value={historyProductId}
-            onChange={(event) => setHistoryProductId(event.target.value)}
+            type="text"
+            list="inventory-product-options"
+            placeholder="Search Product ID or SKU"
+            value={historyLookup}
+            onChange={(event) => setHistoryLookup(event.target.value)}
           />
+          <datalist id="inventory-product-options">
+            {(statusData?.items || []).map((item) => (
+              <option key={item.product_id} value={item.sku}>
+                {item.product_id} - {item.product_name}
+              </option>
+            ))}
+            {(statusData?.items || []).map((item) => (
+              <option key={`id-${item.product_id}`} value={String(item.product_id)}>
+                {item.sku} - {item.product_name}
+              </option>
+            ))}
+          </datalist>
           <button type="submit">Fetch History</button>
         </form>
 
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Opening</th>
-                <th>In</th>
-                <th>Out</th>
-                <th>Closing</th>
-              </tr>
-            </thead>
-            <tbody>
-              {historyData.map((row) => (
-                <tr key={row.history_id}>
-                  <td>{row.date}</td>
-                  <td>{row.opening_stock}</td>
-                  <td>{row.stock_in}</td>
-                  <td>{row.stock_out}</td>
-                  <td>{row.closing_stock}</td>
+        {historyFetched && historyProduct && (
+          <p className="sub-text" style={{ marginBottom: '0.5rem' }}>
+            Showing history for: <strong>{historyProduct.product_name}</strong> ({historyProduct.sku}) — Current stock: <strong>{historyProduct.current_stock}</strong>
+          </p>
+        )}
+
+        {historyFetched && historyData.length === 0 && (
+          <p className="sub-text">No stock history recorded yet for this product. Transactions will appear here once stock-in or stock-out entries are made.</p>
+        )}
+
+        {historyData.length > 0 && (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Opening</th>
+                  <th>In</th>
+                  <th>Out</th>
+                  <th>Closing</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {historyData.map((row) => (
+                  <tr key={row.history_id}>
+                    <td>{row.date}</td>
+                    <td>{row.opening_stock}</td>
+                    <td>{row.stock_in}</td>
+                    <td>{row.stock_out}</td>
+                    <td>{row.closing_stock}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </article>
     </section>
   );

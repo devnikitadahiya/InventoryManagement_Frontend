@@ -1,5 +1,5 @@
 import { describe, expect, test, vi, beforeEach } from 'vitest';
-import { apiRequest } from './api';
+import { apiRequest, UNAUTHORIZED_EVENT } from './api';
 
 describe('apiRequest', () => {
   beforeEach(() => {
@@ -25,5 +25,21 @@ describe('apiRequest', () => {
     });
 
     await expect(apiRequest('bad-token', '/products')).rejects.toThrow('Unauthorized');
+  });
+
+  test('dispatches unauthorized event when API returns 401', async () => {
+    const eventSpy = vi.fn();
+    window.addEventListener(UNAUTHORIZED_EVENT, eventSpy);
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: async () => ({ success: false, message: 'Invalid or expired token' }),
+    });
+
+    await expect(apiRequest('expired-token', '/auth/me')).rejects.toThrow('Invalid or expired token');
+
+    expect(eventSpy).toHaveBeenCalledTimes(1);
+    window.removeEventListener(UNAUTHORIZED_EVENT, eventSpy);
   });
 });

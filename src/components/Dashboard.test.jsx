@@ -1,7 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import Dashboard from './Dashboard';
+import { TOKEN_KEY } from '../config';
 
 vi.mock('../api', () => ({
   apiRequest: vi.fn(),
@@ -80,6 +82,63 @@ describe('Dashboard', () => {
       expect(screen.getByRole('link', { name: /overview/i })).toBeInTheDocument();
       expect(screen.queryByRole('link', { name: /users/i })).not.toBeInTheDocument();
       expect(screen.queryByRole('link', { name: /reports/i })).not.toBeInTheDocument();
+    });
+  });
+
+  test('logout clears stored token and calls onLogout handler', async () => {
+    const onLogout = vi.fn();
+
+    apiRequest
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          total_products: 1,
+          total_stock_value: 100,
+          low_stock_items: 0,
+          out_of_stock_items: 0,
+          top_selling_products: [],
+        },
+      })
+      .mockResolvedValueOnce({ success: true, data: [] })
+      .mockResolvedValueOnce({ success: true, data: [] });
+
+    localStorage.setItem(TOKEN_KEY, 'test-token');
+
+    render(
+      <MemoryRouter initialEntries={['/overview']}>
+        <Dashboard
+          token="test-token"
+          user={{ full_name: 'Admin User', role: 'admin' }}
+          onLogout={onLogout}
+        />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /logout/i })).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /logout/i }));
+
+    expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+    expect(onLogout).toHaveBeenCalledTimes(1);
+  });
+
+  test('shows error message when dashboard API load fails', async () => {
+    apiRequest.mockRejectedValueOnce(new Error('Dashboard service unavailable'));
+
+    render(
+      <MemoryRouter initialEntries={['/overview']}>
+        <Dashboard
+          token="test-token"
+          user={{ full_name: 'Admin User', role: 'admin' }}
+          onLogout={vi.fn()}
+        />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/dashboard service unavailable/i)).toBeInTheDocument();
     });
   });
 });

@@ -16,6 +16,7 @@ function TransactionsTab({ token }) {
   const [typeFilter, setTypeFilter] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const loadTransactions = useCallback(async () => {
     setIsLoading(true);
@@ -37,7 +38,13 @@ function TransactionsTab({ token }) {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+
+    if (isSubmitting) {
+      return;
+    }
+
     setErrorMessage('');
+    setIsSubmitting(true);
 
     try {
       const endpoint = mode === 'in' ? '/transactions/stock-in' : '/transactions/stock-out';
@@ -57,6 +64,8 @@ function TransactionsTab({ token }) {
       await loadTransactions();
     } catch (error) {
       setErrorMessage(error.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -114,7 +123,9 @@ function TransactionsTab({ token }) {
           value={form.notes}
           onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
         />
-        <button type="submit">Record {mode === 'in' ? 'Stock In' : 'Stock Out'}</button>
+        <button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Submitting...' : `Record ${mode === 'in' ? 'Stock In' : 'Stock Out'}`}
+        </button>
       </form>
 
       <div className="module-header slim">

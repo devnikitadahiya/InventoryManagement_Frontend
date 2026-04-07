@@ -58,4 +58,22 @@ describe('LoginForm', () => {
       expect(onLoginSuccess).not.toHaveBeenCalled();
     });
   });
+
+  test('shows fallback error when network request fails', async () => {
+    const onLoginSuccess = vi.fn();
+
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('Network request failed'));
+
+    render(<LoginForm onLoginSuccess={onLoginSuccess} />);
+
+    await userEvent.type(screen.getByLabelText(/email/i), 'admin@inventory.com');
+    await userEvent.type(screen.getByLabelText(/password/i), 'admin123');
+
+    await userEvent.click(screen.getByRole('button', { name: /login/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/network request failed/i)).toBeInTheDocument();
+      expect(onLoginSuccess).not.toHaveBeenCalled();
+    });
+  });
 });
