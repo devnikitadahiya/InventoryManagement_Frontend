@@ -31,12 +31,13 @@ function ReportsTab({ token }) {
     setIsLoading(true);
     setErrorMessage('');
     try {
+      const safeGet = (promise) => promise.catch(() => ({ data: [] }));
       const [invPayload, txPayload, lowPayload, catPayload, forecastPayload] = await Promise.all([
-        apiRequest(token, '/reports/inventory'),
-        apiRequest(token, '/reports/transactions?limit=50'),
-        apiRequest(token, '/reports/low-stock'),
-        apiRequest(token, '/reports/category-sales'),
-        apiRequest(token, '/forecast/summary?days=30'),
+        safeGet(apiRequest(token, '/reports/inventory')),
+        safeGet(apiRequest(token, '/reports/transactions?limit=50')),
+        safeGet(apiRequest(token, '/reports/low-stock')),
+        safeGet(apiRequest(token, '/reports/category-sales')),
+        safeGet(apiRequest(token, '/forecast/summary?days=30')),
       ]);
       setInventoryReport(invPayload.data || []);
       setTransactions(txPayload.data || []);
