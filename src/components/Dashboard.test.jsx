@@ -29,6 +29,10 @@ describe('Dashboard', () => {
       .mockResolvedValueOnce({
         success: true,
         data: [{ period: '2026-03', total_revenue: 45000 }],
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: [],
       });
 
     render(
@@ -59,6 +63,7 @@ describe('Dashboard', () => {
           top_selling_products: [],
         },
       })
+      .mockResolvedValueOnce({ success: true, data: [] })
       .mockResolvedValueOnce({ success: true, data: [] });
 
     render(

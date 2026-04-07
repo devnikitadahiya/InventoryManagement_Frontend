@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { jsPDF } from 'jspdf';
 import { apiRequest } from '../api';
 
 function downloadCsv(fileName, rows) {
@@ -24,6 +25,7 @@ function downloadCsv(fileName, rows) {
 function ReportsTab({ token }) {
   const [dashboard, setDashboard] = useState(null);
   const [transactions, setTransactions] = useState([]);
+  const [forecastSummary, setForecastSummary] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -32,13 +34,15 @@ function ReportsTab({ token }) {
     setErrorMessage('');
 
     try {
-      const [dashboardPayload, txPayload] = await Promise.all([
+      const [dashboardPayload, txPayload, forecastPayload] = await Promise.all([
         apiRequest(token, '/analytics/dashboard'),
         apiRequest(token, '/transactions?page=1&limit=50'),
+        apiRequest(token, '/forecast/summary?days=30'),
       ]);
 
       setDashboard(dashboardPayload.data || null);
       setTransactions(txPayload.data || []);
+      setForecastSummary(forecastPayload.data || []);
     } catch (error) {
       setErrorMessage(error.message || 'Unable to load report data');
     } finally {
@@ -86,6 +90,56 @@ function ReportsTab({ token }) {
     downloadCsv('transaction-history.csv', rows);
   };
 
+  const exportForecastSummary = () => {
+    if (!forecastSummary.length) {
+      return;
+    }
+
+    const rows = forecastSummary.map((item) => ({
+      product_id: item.product_id,
+      sku: item.sku,
+      product_name: item.product_name,
+      current_stock: item.current_stock,
+      total_predicted_demand: item.total_predicted_demand,
+      average_daily_demand: item.average_daily_demand,
+      model_accuracy: item.model_accuracy,
+      at_risk: item.stockout_risk?.at_risk ? 'yes' : 'no',
+      estimated_days_to_stockout: item.stockout_risk?.estimated_days_to_stockout ?? '',
+      projected_stockout_date: item.stockout_risk?.projected_stockout_date ?? '',
+    }));
+
+    downloadCsv('forecast-summary.csv', rows);
+  };
+
+  const exportForecastSummaryPdf = () => {
+    if (!forecastSummary.length) {
+      return;
+    }
+
+    const pdf = new jsPDF();
+    pdf.setFontSize(16);
+    pdf.text('Forecast Summary Report', 14, 16);
+
+    pdf.setFontSize(10);
+    pdf.text(`Generated: ${new Date().toLocaleString()}`, 14, 24);
+
+    let cursorY = 34;
+    forecastSummary.slice(0, 20).forEach((item, index) => {
+      const rowText = `${index + 1}. ${item.product_name} (${item.sku}) | Predicted: ${Number(item.total_predicted_demand || 0).toFixed(1)} | Accuracy: ${Number(item.model_accuracy || 0).toFixed(1)}% | Risk: ${item.stockout_risk?.at_risk ? 'At risk' : 'Stable'}`;
+      const lines = pdf.splitTextToSize(rowText, 180);
+
+      if (cursorY + lines.length * 6 > 280) {
+        pdf.addPage();
+        cursorY = 20;
+      }
+
+      pdf.text(lines, 14, cursorY);
+      cursorY += lines.length * 6 + 2;
+    });
+
+    pdf.save('forecast-summary.pdf');
+  };
+
   return (
     <section className="module-section">
       <div className="module-header">
@@ -104,6 +158,8 @@ function ReportsTab({ token }) {
             <div className="export-row">
               <button type="button" onClick={exportInventorySummary}>Export Inventory Summary (CSV)</button>
               <button type="button" onClick={exportTransactionHistory}>Export Transactions (CSV)</button>
+              <button type="button" onClick={exportForecastSummary}>Export Forecast Summary (CSV)</button>
+              <button type="button" onClick={exportForecastSummaryPdf}>Export Forecast Summary (PDF)</button>
             </div>
           </article>
 

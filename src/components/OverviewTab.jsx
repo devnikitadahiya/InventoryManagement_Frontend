@@ -1,4 +1,17 @@
-function OverviewTab({ dashboard, salesTrends }) {
+function OverviewTab({ dashboard, salesTrends, forecastSummary = [] }) {
+  const forecastTotals = forecastSummary.reduce(
+    (accumulator, item) => {
+      const totalDemand = Number(item.total_predicted_demand || 0);
+      const isAtRisk = Boolean(item.stockout_risk?.at_risk);
+
+      return {
+        totalPredictedDemand: accumulator.totalPredictedDemand + totalDemand,
+        atRiskProducts: accumulator.atRiskProducts + (isAtRisk ? 1 : 0),
+      };
+    },
+    { totalPredictedDemand: 0, atRiskProducts: 0 }
+  );
+
   const metricCards = dashboard
     ? [
         { label: 'Total Products', value: dashboard.total_products },
@@ -8,6 +21,11 @@ function OverviewTab({ dashboard, salesTrends }) {
         },
         { label: 'Low Stock Items', value: dashboard.low_stock_items },
         { label: 'Out of Stock', value: dashboard.out_of_stock_items },
+        {
+          label: 'Predicted Demand (30d)',
+          value: Number(forecastTotals.totalPredictedDemand).toFixed(0),
+        },
+        { label: 'Predicted Stockout Risk', value: forecastTotals.atRiskProducts },
       ]
     : [];
 

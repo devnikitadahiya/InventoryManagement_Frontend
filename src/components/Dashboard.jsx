@@ -14,6 +14,7 @@ import UsersTab from './UsersTab';
 function Dashboard({ token, user, onLogout }) {
   const [dashboard, setDashboard] = useState(null);
   const [salesTrends, setSalesTrends] = useState([]);
+  const [forecastSummary, setForecastSummary] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const role = user?.role || 'staff';
@@ -38,13 +39,15 @@ function Dashboard({ token, user, onLogout }) {
       setErrorMessage('');
 
       try {
-        const [dashboardPayload, salesPayload] = await Promise.all([
+        const [dashboardPayload, salesPayload, forecastPayload] = await Promise.all([
           apiRequest(token, '/analytics/dashboard'),
           apiRequest(token, '/analytics/sales-trends?period=monthly'),
+          apiRequest(token, '/forecast/summary?days=30'),
         ]);
 
         setDashboard(dashboardPayload.data);
         setSalesTrends(salesPayload.data || []);
+        setForecastSummary(forecastPayload.data || []);
       } catch (error) {
         setErrorMessage(error.message || 'Something went wrong while loading data');
       } finally {
@@ -62,7 +65,13 @@ function Dashboard({ token, user, onLogout }) {
 
   const renderTabByKey = (key) => {
     if (key === 'overview') {
-      return <OverviewTab dashboard={dashboard} salesTrends={salesTrends} />;
+      return (
+        <OverviewTab
+          dashboard={dashboard}
+          salesTrends={salesTrends}
+          forecastSummary={forecastSummary}
+        />
+      );
     }
 
     if (key === 'products') {

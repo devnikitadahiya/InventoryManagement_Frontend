@@ -115,15 +115,18 @@ describe('Module components', () => {
   test('AnalyticsTab loads and updates by period', async () => {
     apiRequest
       .mockResolvedValueOnce({ success: true, data: [{ period: '2026-03', total_quantity: 10, total_revenue: 5000, transactions_count: 2 }] })
-      .mockResolvedValueOnce({ success: true, data: [{ period: '2026', total_quantity: 50, total_revenue: 20000, transactions_count: 10 }] });
+      .mockResolvedValueOnce({ success: true, data: [{ product_id: 1, product_name: 'Laptop', total_predicted_demand: 30, model_accuracy: 90, stockout_risk: { at_risk: false } }] })
+      .mockResolvedValueOnce({ success: true, data: [{ period: '2026', total_quantity: 50, total_revenue: 20000, transactions_count: 10 }] })
+      .mockResolvedValueOnce({ success: true, data: [{ product_id: 1, product_name: 'Laptop', total_predicted_demand: 40, model_accuracy: 89, stockout_risk: { at_risk: true } }] });
 
     render(<AnalyticsTab token="token-4" />);
 
     await waitFor(() => {
       expect(screen.getByText('2026-03')).toBeInTheDocument();
+      expect(screen.getByText('Window size: 30 days')).toBeInTheDocument();
     });
 
-    await userEvent.selectOptions(screen.getByRole('combobox'), 'yearly');
+    await userEvent.selectOptions(screen.getByLabelText(/sales period/i), 'yearly');
 
     await waitFor(() => {
       expect(apiRequest).toHaveBeenCalledWith('token-4', '/analytics/sales-trends?period=yearly');
@@ -223,25 +226,39 @@ describe('Module components', () => {
   });
 
   test('AlertsTab renders mapped low stock alerts', async () => {
-    apiRequest.mockResolvedValueOnce({
-      success: true,
-      data: [
-        {
-          product_id: 9,
-          sku: 'SKU009',
-          product_name: 'Monitor',
-          current_stock: 2,
-          reorder_level: 5,
-          updated_at: '2026-03-23T10:00:00.000Z',
-        },
-      ],
-    });
+    apiRequest
+      .mockResolvedValueOnce({ success: true, data: { scanned_products: 1, at_risk_products: 1, horizon_days: 30 } })
+      .mockResolvedValueOnce({
+        success: true,
+        data: [
+          {
+            product_id: 9,
+            sku: 'SKU009',
+            product_name: 'Monitor',
+            current_stock: 2,
+            reorder_level: 5,
+            updated_at: '2026-03-23T10:00:00.000Z',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: [
+          {
+            product_id: 9,
+            sku: 'SKU009',
+            product_name: 'Monitor',
+            total_predicted_demand: 12,
+            stockout_risk: { at_risk: true, estimated_days_to_stockout: 4 },
+          },
+        ],
+      });
 
     render(<AlertsTab token="token-6" />);
 
     await waitFor(() => {
       expect(screen.getByText(/low stock/i)).toBeInTheDocument();
-      expect(screen.getByText(/monitor/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/monitor/i).length).toBeGreaterThan(0);
     });
   });
 
@@ -268,6 +285,21 @@ describe('Module components', () => {
             quantity: 2,
             total_amount: 100000,
             transaction_date: '2026-03-23T10:00:00.000Z',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: [
+          {
+            product_id: 1,
+            sku: 'SKU001',
+            product_name: 'Laptop',
+            current_stock: 5,
+            total_predicted_demand: 18,
+            average_daily_demand: 0.6,
+            model_accuracy: 88,
+            stockout_risk: { at_risk: false },
           },
         ],
       });

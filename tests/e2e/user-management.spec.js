@@ -84,6 +84,24 @@ function buildApiMocks(page) {
       });
     }
 
+    if (path === '/forecast/summary' && method === 'GET') {
+      return json({
+        success: true,
+        data: [
+          {
+            product_id: 1,
+            sku: 'SKU001',
+            product_name: 'Laptop',
+            current_stock: 12,
+            total_predicted_demand: 19,
+            average_daily_demand: 0.63,
+            model_accuracy: 88,
+            stockout_risk: { at_risk: false, estimated_days_to_stockout: 42, projected_stockout_date: null },
+          },
+        ],
+      });
+    }
+
     // Users — get all
     if (path === '/auth/users' && method === 'GET') {
       return json({ success: true, data: state.users });

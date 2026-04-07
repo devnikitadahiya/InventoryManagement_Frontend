@@ -89,6 +89,37 @@ function buildApiMocks(page) {
       });
     }
 
+    if (path === '/forecast/summary' && method === 'GET') {
+      return json({
+        success: true,
+        data: state.products.map((item) => ({
+          product_id: item.product_id,
+          sku: item.sku,
+          product_name: item.product_name,
+          current_stock: item.current_stock,
+          total_predicted_demand: 18,
+          average_daily_demand: 0.6,
+          model_accuracy: 87,
+          stockout_risk: {
+            at_risk: item.current_stock < item.reorder_level,
+            estimated_days_to_stockout: item.current_stock < item.reorder_level ? 6 : 42,
+            projected_stockout_date: item.current_stock < item.reorder_level ? '2026-04-14' : null,
+          },
+        })),
+      });
+    }
+
+    if (path === '/forecast/refresh-alerts' && method === 'POST') {
+      return json({
+        success: true,
+        data: {
+          scanned_products: state.products.length,
+          at_risk_products: state.products.filter((item) => item.current_stock < item.reorder_level).length,
+          horizon_days: 30,
+        },
+      });
+    }
+
     if (path.startsWith('/products') && method === 'GET') {
       const search = (url.searchParams.get('search') || '').toLowerCase();
       const filteredProducts = state.products.filter((item) => {

@@ -133,6 +133,12 @@
   padding: 0.5rem 0.65rem;
 }
 
+.control-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .inline-form {
   display: flex;
   gap: 0.5rem;
@@ -293,6 +299,13 @@ tr.inactive-row td {
 
 .status-text {
   color: #4b5563;
+}
+
+.window-size-text {
+  margin: 0 0 0.65rem;
+  color: #4b5563;
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .error-text {
