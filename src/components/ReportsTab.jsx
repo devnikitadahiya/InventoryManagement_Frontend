@@ -3,16 +3,12 @@ import { jsPDF } from 'jspdf';
 import { apiRequest } from '../api';
 
 function downloadCsv(fileName, rows) {
-  if (!rows.length) {
-    return;
-  }
-
+  if (!rows.length) return;
   const headers = Object.keys(rows[0]);
   const csv = [
     headers.join(','),
-    ...rows.map((row) => headers.map((header) => JSON.stringify(row[header] ?? '')).join(',')),
+    ...rows.map((row) => headers.map((h) => JSON.stringify(row[h] ?? '')).join(',')),
   ].join('\n');
-
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
@@ -23,8 +19,10 @@ function downloadCsv(fileName, rows) {
 }
 
 function ReportsTab({ token }) {
-  const [dashboard, setDashboard] = useState(null);
+  const [inventoryReport, setInventoryReport] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [lowStock, setLowStock] = useState([]);
+  const [categorySales, setCategorySales] = useState([]);
   const [forecastSummary, setForecastSummary] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -32,16 +30,18 @@ function ReportsTab({ token }) {
   const loadReportsData = useCallback(async () => {
     setIsLoading(true);
     setErrorMessage('');
-
     try {
-      const [dashboardPayload, txPayload, forecastPayload] = await Promise.all([
-        apiRequest(token, '/analytics/dashboard'),
-        apiRequest(token, '/transactions?page=1&limit=50'),
+      const [invPayload, txPayload, lowPayload, catPayload, forecastPayload] = await Promise.all([
+        apiRequest(token, '/reports/inventory'),
+        apiRequest(token, '/reports/transactions?limit=50'),
+        apiRequest(token, '/reports/low-stock'),
+        apiRequest(token, '/reports/category-sales'),
         apiRequest(token, '/forecast/summary?days=30'),
       ]);
-
-      setDashboard(dashboardPayload.data || null);
+      setInventoryReport(invPayload.data || []);
       setTransactions(txPayload.data || []);
+      setLowStock(lowPayload.data || []);
+      setCategorySales(catPayload.data || []);
       setForecastSummary(forecastPayload.data || []);
     } catch (error) {
       setErrorMessage(error.message || 'Unable to load report data');
@@ -54,89 +54,72 @@ function ReportsTab({ token }) {
     loadReportsData();
   }, [loadReportsData]);
 
-  const exportInventorySummary = () => {
-    if (!dashboard) {
-      return;
-    }
-
-    downloadCsv('inventory-summary.csv', [
-      {
-        total_products: dashboard.total_products,
-        total_stock_value: dashboard.total_stock_value,
-        low_stock_items: dashboard.low_stock_items,
-        out_of_stock_items: dashboard.out_of_stock_items,
-        recent_sales: dashboard.recent_sales,
-        recent_sales_transactions: dashboard.recent_sales_transactions,
-      },
-    ]);
+  const exportInventoryReport = () => {
+    downloadCsv(
+      'inventory-report.csv',
+      inventoryReport.map((r) => ({
+        product_id: r.product_id,
+        sku: r.sku,
+        product_name: r.product_name,
+        category: r.category_name,
+        current_stock: r.current_stock,
+        reorder_level: r.reorder_level,
+        stock_status: r.stock_status,
+        unit_price: r.unit_price,
+        stock_value: r.stock_value,
+      }))
+    );
   };
 
-  const exportTransactionHistory = () => {
-    if (!transactions.length) {
-      return;
-    }
-
-    const rows = transactions.map((item) => ({
-      transaction_id: item.transaction_id,
-      product_name: item.product_name,
-      transaction_type: item.transaction_type,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      total_amount: item.total_amount,
-      transaction_date: item.transaction_date,
-      reference_number: item.reference_number,
-    }));
-
-    downloadCsv('transaction-history.csv', rows);
+  const exportTransactions = () => {
+    downloadCsv(
+      'transactions.csv',
+      transactions.map((r) => ({
+        transaction_id: r.transaction_id,
+        product_name: r.product_name,
+        sku: r.sku,
+        type: r.transaction_type,
+        quantity: r.quantity,
+        unit_price: r.unit_price,
+        total_amount: r.total_amount,
+        reference_number: r.reference_number,
+        date: r.transaction_date,
+        recorded_by: r.created_by_name,
+      }))
+    );
   };
 
-  const exportForecastSummary = () => {
-    if (!forecastSummary.length) {
-      return;
-    }
-
-    const rows = forecastSummary.map((item) => ({
-      product_id: item.product_id,
-      sku: item.sku,
-      product_name: item.product_name,
-      current_stock: item.current_stock,
-      total_predicted_demand: item.total_predicted_demand,
-      average_daily_demand: item.average_daily_demand,
-      model_accuracy: item.model_accuracy,
-      at_risk: item.stockout_risk?.at_risk ? 'yes' : 'no',
-      estimated_days_to_stockout: item.stockout_risk?.estimated_days_to_stockout ?? '',
-      projected_stockout_date: item.stockout_risk?.projected_stockout_date ?? '',
-    }));
-
-    downloadCsv('forecast-summary.csv', rows);
+  const exportLowStock = () => {
+    downloadCsv(
+      'low-stock-report.csv',
+      lowStock.map((r) => ({
+        sku: r.sku,
+        product_name: r.product_name,
+        category: r.category_name,
+        current_stock: r.current_stock,
+        reorder_level: r.reorder_level,
+        units_needed: r.units_needed,
+        estimated_reorder_cost: r.estimated_reorder_cost,
+        status: r.status,
+      }))
+    );
   };
 
-  const exportForecastSummaryPdf = () => {
-    if (!forecastSummary.length) {
-      return;
-    }
-
+  const exportForecastPdf = () => {
+    if (!forecastSummary.length) return;
     const pdf = new jsPDF();
     pdf.setFontSize(16);
     pdf.text('Forecast Summary Report', 14, 16);
-
     pdf.setFontSize(10);
     pdf.text(`Generated: ${new Date().toLocaleString()}`, 14, 24);
-
-    let cursorY = 34;
-    forecastSummary.slice(0, 20).forEach((item, index) => {
-      const rowText = `${index + 1}. ${item.product_name} (${item.sku}) | Predicted: ${Number(item.total_predicted_demand || 0).toFixed(1)} | Accuracy: ${Number(item.model_accuracy || 0).toFixed(1)}% | Risk: ${item.stockout_risk?.at_risk ? 'At risk' : 'Stable'}`;
-      const lines = pdf.splitTextToSize(rowText, 180);
-
-      if (cursorY + lines.length * 6 > 280) {
-        pdf.addPage();
-        cursorY = 20;
-      }
-
-      pdf.text(lines, 14, cursorY);
-      cursorY += lines.length * 6 + 2;
+    let y = 34;
+    forecastSummary.slice(0, 20).forEach((item, i) => {
+      const line = `${i + 1}. ${item.product_name} (${item.sku}) | Predicted: ${Number(item.total_predicted_demand || 0).toFixed(1)} | Accuracy: ${Number(item.model_accuracy || 0).toFixed(1)}% | Risk: ${item.stockout_risk?.at_risk ? 'At risk' : 'Stable'}`;
+      const lines = pdf.splitTextToSize(line, 180);
+      if (y + lines.length * 6 > 280) { pdf.addPage(); y = 20; }
+      pdf.text(lines, 14, y);
+      y += lines.length * 6 + 2;
     });
-
     pdf.save('forecast-summary.pdf');
   };
 
@@ -154,13 +137,83 @@ function ReportsTab({ token }) {
         <>
           <article className="panel">
             <h3>Export Reports</h3>
-            <p className="sub-text">Download CSV reports generated from live dashboard and transactions data.</p>
             <div className="export-row">
-              <button type="button" onClick={exportInventorySummary}>Export Inventory Summary (CSV)</button>
-              <button type="button" onClick={exportTransactionHistory}>Export Transactions (CSV)</button>
-              <button type="button" onClick={exportForecastSummary}>Export Forecast Summary (CSV)</button>
-              <button type="button" onClick={exportForecastSummaryPdf}>Export Forecast Summary (PDF)</button>
+              <button type="button" onClick={exportInventoryReport}>Export Inventory (CSV)</button>
+              <button type="button" onClick={exportTransactions}>Export Transactions (CSV)</button>
+              <button type="button" onClick={exportLowStock}>Export Low Stock (CSV)</button>
+              <button type="button" onClick={exportForecastPdf}>Export Forecast (PDF)</button>
             </div>
+          </article>
+
+          <article className="panel">
+            <h3>Low Stock &amp; Out of Stock ({lowStock.length} items)</h3>
+            {lowStock.length === 0 ? (
+              <p>All products are sufficiently stocked.</p>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>SKU</th>
+                      <th>Product</th>
+                      <th>Category</th>
+                      <th>Stock</th>
+                      <th>Reorder At</th>
+                      <th>Need</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lowStock.map((r) => (
+                      <tr
+                        key={r.product_id}
+                        className={r.status === 'out_of_stock' ? 'row-critical' : 'row-warning'}
+                      >
+                        <td>{r.sku}</td>
+                        <td>{r.product_name}</td>
+                        <td>{r.category_name || '—'}</td>
+                        <td>{r.current_stock}</td>
+                        <td>{r.reorder_level}</td>
+                        <td>{r.units_needed}</td>
+                        <td>{r.status === 'out_of_stock' ? 'Out of Stock' : 'Low Stock'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </article>
+
+          <article className="panel">
+            <h3>Category Sales Breakdown</h3>
+            {categorySales.length === 0 ? (
+              <p>No sales data available.</p>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Category</th>
+                      <th>Products</th>
+                      <th>Units Sold</th>
+                      <th>Revenue</th>
+                      <th>Transactions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {categorySales.map((r) => (
+                      <tr key={r.category_name}>
+                        <td>{r.category_name}</td>
+                        <td>{r.products_count}</td>
+                        <td>{r.total_quantity_sold}</td>
+                        <td>₹ {Number(r.total_revenue).toLocaleString()}</td>
+                        <td>{r.transaction_count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </article>
 
           <article className="panel">
@@ -174,16 +227,18 @@ function ReportsTab({ token }) {
                     <th>Type</th>
                     <th>Qty</th>
                     <th>Total</th>
+                    <th>Ref</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.slice(0, 10).map((item) => (
-                    <tr key={item.transaction_id}>
-                      <td>{new Date(item.transaction_date).toLocaleString()}</td>
-                      <td>{item.product_name}</td>
-                      <td>{item.transaction_type}</td>
-                      <td>{item.quantity}</td>
-                      <td>₹ {Number(item.total_amount || 0).toLocaleString()}</td>
+                  {transactions.slice(0, 10).map((r) => (
+                    <tr key={r.transaction_id}>
+                      <td>{new Date(r.transaction_date).toLocaleDateString()}</td>
+                      <td>{r.product_name}</td>
+                      <td>{r.transaction_type}</td>
+                      <td>{r.quantity}</td>
+                      <td>₹ {Number(r.total_amount || 0).toLocaleString()}</td>
+                      <td>{r.reference_number || '—'}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -91,7 +91,7 @@ function Dashboard({ token, user, onLogout }) {
     }
 
     if (key === 'alerts') {
-      return <AlertsTab token={token} />;
+      return <AlertsTab token={token} userRole={role} />;
     }
 
     if (key === 'reports') {
