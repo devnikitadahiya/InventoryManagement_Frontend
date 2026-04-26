@@ -119,8 +119,18 @@ function ProductsTab({ token, role }) {
     }
   };
 
+  const lowStockProducts = products.filter(
+    (item) => Number(item.current_stock || 0) <= Number(item.reorder_level || 0)
+  ).length;
+
+  const totalStockValue = products.reduce(
+    (accumulator, item) =>
+      accumulator + Number(item.current_stock || 0) * Number(item.unit_price || 0),
+    0
+  );
+
   return (
-    <section className="module-section">
+    <section className="module-section products-section">
       <div className="module-header">
         <h3>Products</h3>
         <form className="inline-form" onSubmit={handleSearch}>
@@ -132,6 +142,25 @@ function ProductsTab({ token, role }) {
           <button type="submit">Search</button>
         </form>
       </div>
+
+      <section className="card-grid analytics-kpi-grid">
+        <article className="metric-card">
+          <p>Visible Products</p>
+          <h3>{products.length}</h3>
+        </article>
+        <article className="metric-card revenue">
+          <p>Visible Stock Value</p>
+          <h3>₹ {totalStockValue.toLocaleString()}</h3>
+        </article>
+        <article className="metric-card warning">
+          <p>Low Stock in View</p>
+          <h3>{lowStockProducts}</h3>
+        </article>
+        <article className="metric-card">
+          <p>Page Summary</p>
+          <h3>{pagination?.page || page} / {pagination?.totalPages || 1}</h3>
+        </article>
+      </section>
 
       <form className="grid-form" onSubmit={activeEditId ? handleUpdate : handleCreate}>
         <input
@@ -189,7 +218,11 @@ function ProductsTab({ token, role }) {
                   <td>{item.sku}</td>
                   <td>{item.product_name}</td>
                   <td>₹ {Number(item.unit_price || 0).toLocaleString()}</td>
-                  <td>{item.current_stock}</td>
+                  <td>
+                    <span className={`stock-chip ${Number(item.current_stock || 0) <= Number(item.reorder_level || 0) ? 'warning' : 'safe'}`}>
+                      {item.current_stock}
+                    </span>
+                  </td>
                   <td className="actions-cell">
                     <button type="button" onClick={() => startEdit(item)}>Edit</button>
                     {role !== 'staff' && (

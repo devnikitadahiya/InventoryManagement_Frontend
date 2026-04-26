@@ -36,6 +36,13 @@ function TransactionsTab({ token }) {
     loadTransactions();
   }, [loadTransactions]);
 
+  const stockInCount = transactions.filter((row) => row.transaction_type === 'in').length;
+  const stockOutCount = transactions.filter((row) => row.transaction_type === 'out').length;
+  const totalAmount = transactions.reduce(
+    (accumulator, row) => accumulator + Number(row.total_amount || 0),
+    0
+  );
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -70,7 +77,7 @@ function TransactionsTab({ token }) {
   };
 
   return (
-    <section className="module-section">
+    <section className="module-section transactions-section">
       <div className="module-header">
         <h3>Transactions</h3>
         <div className="toggle-group">
@@ -90,6 +97,25 @@ function TransactionsTab({ token }) {
           </button>
         </div>
       </div>
+
+      <section className="card-grid analytics-kpi-grid">
+        <article className="metric-card">
+          <p>Recent Entries</p>
+          <h3>{transactions.length}</h3>
+        </article>
+        <article className="metric-card safe">
+          <p>Stock In Entries</p>
+          <h3>{stockInCount}</h3>
+        </article>
+        <article className="metric-card warning">
+          <p>Stock Out Entries</p>
+          <h3>{stockOutCount}</h3>
+        </article>
+        <article className="metric-card revenue">
+          <p>Total Transaction Value</p>
+          <h3>₹ {totalAmount.toLocaleString()}</h3>
+        </article>
+      </section>
 
       <form className="grid-form" onSubmit={handleSubmit}>
         <input
@@ -157,7 +183,11 @@ function TransactionsTab({ token }) {
                 <tr key={row.transaction_id}>
                   <td>{new Date(row.transaction_date).toLocaleString()}</td>
                   <td>{row.product_name}</td>
-                  <td>{row.transaction_type}</td>
+                  <td>
+                    <span className={`type-pill ${row.transaction_type === 'in' ? 'in' : 'out'}`}>
+                      {row.transaction_type}
+                    </span>
+                  </td>
                   <td>{row.quantity}</td>
                   <td>₹ {Number(row.total_amount || 0).toLocaleString()}</td>
                 </tr>

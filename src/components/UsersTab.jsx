@@ -92,12 +92,34 @@ function UsersTab({ token, user }) {
     }
   };
 
+  const activeCount = users.filter((u) => u.is_active).length;
+  const managerCount = users.filter((u) => u.role === 'manager').length;
+
   return (
-    <section className="module-section">
+    <section className="module-section users-section">
       <div className="module-header">
         <h3>Users</h3>
         <button type="button" onClick={loadUsers}>Refresh</button>
       </div>
+
+      <section className="card-grid analytics-kpi-grid">
+        <article className="metric-card">
+          <p>Total Users</p>
+          <h3>{users.length}</h3>
+        </article>
+        <article className="metric-card safe">
+          <p>Active Users</p>
+          <h3>{activeCount}</h3>
+        </article>
+        <article className="metric-card warning">
+          <p>Managers</p>
+          <h3>{managerCount}</h3>
+        </article>
+        <article className="metric-card">
+          <p>Your Access</p>
+          <h3>{role}</h3>
+        </article>
+      </section>
 
       {errorMessage && <p className="error-text">{errorMessage}</p>}
       {successMessage && <p className="status-text">{successMessage}</p>}
@@ -148,56 +170,62 @@ function UsersTab({ token, user }) {
         {users.length === 0 ? (
           <p className="status-text">No users found</p>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Status</th>
-                {canManageUsers && <th>Actions</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.user_id} className={u.is_active ? '' : 'inactive-row'}>
-                  <td>{u.full_name}</td>
-                  <td>{u.email}</td>
-                  <td>
-                    {canManageUsers ? (
-                      <select
-                        aria-label={`Role for ${u.email}`}
-                        value={u.role}
-                        disabled={busyUserId === u.user_id || !u.is_active || u.user_id === currentUserId}
-                        onChange={(e) => handleRoleChange(u.user_id, e.target.value)}
-                      >
-                        {assignableRoles.map((availableRole) => (
-                          <option key={availableRole} value={availableRole}>
-                            {availableRole.charAt(0).toUpperCase() + availableRole.slice(1)}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      u.role
-                    )}
-                  </td>
-                  <td>{u.is_active ? 'Active' : 'Inactive'}</td>
-                  {canManageUsers && (
-                    <td>
-                      <button
-                        type="button"
-                        aria-label={`Deactivate ${u.email}`}
-                        disabled={busyUserId === u.user_id || !u.is_active || u.user_id === currentUserId}
-                        onClick={() => handleDeactivate(u.user_id)}
-                      >
-                        {busyUserId === u.user_id ? 'Working...' : 'Deactivate'}
-                      </button>
-                    </td>
-                  )}
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  {canManageUsers && <th>Actions</th>}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {users.map((u) => (
+                  <tr key={u.user_id} className={u.is_active ? '' : 'inactive-row'}>
+                    <td>{u.full_name}</td>
+                    <td>{u.email}</td>
+                    <td>
+                      {canManageUsers ? (
+                        <select
+                          aria-label={`Role for ${u.email}`}
+                          value={u.role}
+                          disabled={busyUserId === u.user_id || !u.is_active || u.user_id === currentUserId}
+                          onChange={(e) => handleRoleChange(u.user_id, e.target.value)}
+                        >
+                          {assignableRoles.map((availableRole) => (
+                            <option key={availableRole} value={availableRole}>
+                              {availableRole.charAt(0).toUpperCase() + availableRole.slice(1)}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="role-chip inline">{u.role}</span>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`status-chip ${u.is_active ? 'safe' : 'danger'}`}>
+                        {u.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    {canManageUsers && (
+                      <td>
+                        <button
+                          type="button"
+                          aria-label={`Deactivate ${u.email}`}
+                          disabled={busyUserId === u.user_id || !u.is_active || u.user_id === currentUserId}
+                          onClick={() => handleDeactivate(u.user_id)}
+                        >
+                          {busyUserId === u.user_id ? 'Working...' : 'Deactivate'}
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </article>
     </section>

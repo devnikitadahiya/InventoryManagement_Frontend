@@ -73,7 +73,7 @@ function InventoryTab({ token }) {
   };
 
   return (
-    <section className="module-section">
+    <section className="module-section inventory-section">
       <div className="module-header">
         <h3>Inventory</h3>
         <button type="button" onClick={loadInventory}>Refresh</button>
@@ -88,15 +88,15 @@ function InventoryTab({ token }) {
             <p>Total Units</p>
             <h3>{statusData.summary.total_stock_units}</h3>
           </article>
-          <article className="metric-card">
+          <article className="metric-card revenue">
             <p>Total Value</p>
             <h3>₹ {Number(statusData.summary.total_inventory_value || 0).toLocaleString()}</h3>
           </article>
-          <article className="metric-card">
+          <article className="metric-card warning">
             <p>Low Stock</p>
             <h3>{statusData.summary.low_stock_items}</h3>
           </article>
-          <article className="metric-card">
+          <article className="metric-card danger">
             <p>Out of Stock</p>
             <h3>{statusData.summary.out_of_stock_items}</h3>
           </article>
@@ -122,7 +122,11 @@ function InventoryTab({ token }) {
                   <td>{item.product_id}</td>
                   <td>{item.sku}</td>
                   <td>{item.product_name}</td>
-                  <td>{item.current_stock}</td>
+                  <td>
+                    <span className={`stock-chip ${Number(item.current_stock || 0) === 0 ? 'danger' : 'warning'}`}>
+                      {item.current_stock}
+                    </span>
+                  </td>
                   <td>{item.reorder_level}</td>
                 </tr>
               ))}

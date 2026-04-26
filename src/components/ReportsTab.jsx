@@ -19,6 +19,7 @@ function downloadCsv(fileName, rows) {
 }
 
 function ReportsTab({ token }) {
+  const [dashboardSummary, setDashboardSummary] = useState(null);
   const [inventoryReport, setInventoryReport] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [lowStock, setLowStock] = useState([]);
@@ -31,14 +32,25 @@ function ReportsTab({ token }) {
     setIsLoading(true);
     setErrorMessage('');
     try {
-      const safeGet = (promise) => promise.catch(() => ({ data: [] }));
-      const [invPayload, txPayload, lowPayload, catPayload, forecastPayload] = await Promise.all([
-        safeGet(apiRequest(token, '/reports/inventory')),
-        safeGet(apiRequest(token, '/reports/transactions?limit=50')),
-        safeGet(apiRequest(token, '/reports/low-stock')),
-        safeGet(apiRequest(token, '/reports/category-sales')),
-        safeGet(apiRequest(token, '/forecast/summary?days=30')),
+      const safeGet = (requestFactory) =>
+        Promise.resolve()
+          .then(requestFactory)
+          .then((payload) => payload || { data: [] })
+          .catch(() => ({ data: [] }));
+
+      const [summaryPayload, txPayload, forecastPayload] = await Promise.all([
+        apiRequest(token, '/analytics/dashboard'),
+        apiRequest(token, '/reports/transactions?limit=50'),
+        apiRequest(token, '/forecast/summary?days=30'),
       ]);
+
+      const [invPayload, lowPayload, catPayload] = await Promise.all([
+        safeGet(() => apiRequest(token, '/reports/inventory')),
+        safeGet(() => apiRequest(token, '/reports/low-stock')),
+        safeGet(() => apiRequest(token, '/reports/category-sales')),
+      ]);
+
+      setDashboardSummary(summaryPayload.data || null);
       setInventoryReport(invPayload.data || []);
       setTransactions(txPayload.data || []);
       setLowStock(lowPayload.data || []);
@@ -56,19 +68,34 @@ function ReportsTab({ token }) {
   }, [loadReportsData]);
 
   const exportInventoryReport = () => {
+    const fallbackRows = dashboardSummary
+      ? [
+          {
+            total_products: dashboardSummary.total_products,
+            total_stock_value: dashboardSummary.total_stock_value,
+            low_stock_items: dashboardSummary.low_stock_items,
+            out_of_stock_items: dashboardSummary.out_of_stock_items,
+            recent_sales: dashboardSummary.recent_sales,
+            recent_sales_transactions: dashboardSummary.recent_sales_transactions,
+          },
+        ]
+      : [];
+
     downloadCsv(
-      'inventory-report.csv',
-      inventoryReport.map((r) => ({
-        product_id: r.product_id,
-        sku: r.sku,
-        product_name: r.product_name,
-        category: r.category_name,
-        current_stock: r.current_stock,
-        reorder_level: r.reorder_level,
-        stock_status: r.stock_status,
-        unit_price: r.unit_price,
-        stock_value: r.stock_value,
-      }))
+      'inventory-summary.csv',
+      inventoryReport.length
+        ? inventoryReport.map((r) => ({
+            product_id: r.product_id,
+            sku: r.sku,
+            product_name: r.product_name,
+            category: r.category_name,
+            current_stock: r.current_stock,
+            reorder_level: r.reorder_level,
+            stock_status: r.stock_status,
+            unit_price: r.unit_price,
+            stock_value: r.stock_value,
+          }))
+        : fallbackRows
     );
   };
 
@@ -125,7 +152,7 @@ function ReportsTab({ token }) {
   };
 
   return (
-    <section className="module-section">
+    <section className="module-section reports-section">
       <div className="module-header">
         <h3>Reports</h3>
         <button type="button" onClick={loadReportsData}>Refresh Data</button>
@@ -136,13 +163,32 @@ function ReportsTab({ token }) {
 
       {!isLoading && !errorMessage && (
         <>
+          <section className="card-grid analytics-kpi-grid">
+            <article className="metric-card">
+              <p>Total Products</p>
+              <h3>{dashboardSummary?.total_products ?? inventoryReport.length}</h3>
+            </article>
+            <article className="metric-card revenue">
+              <p>Total Stock Value</p>
+              <h3>₹ {Number(dashboardSummary?.total_stock_value || 0).toLocaleString()}</h3>
+            </article>
+            <article className="metric-card warning">
+              <p>Low/Out Stock Items</p>
+              <h3>{dashboardSummary?.low_stock_items ?? lowStock.length}</h3>
+            </article>
+            <article className="metric-card forecast">
+              <p>Forecast Entries</p>
+              <h3>{forecastSummary.length}</h3>
+            </article>
+          </section>
+
           <article className="panel">
             <h3>Export Reports</h3>
             <div className="export-row">
-              <button type="button" onClick={exportInventoryReport}>Export Inventory (CSV)</button>
+              <button type="button" onClick={exportInventoryReport}>Export Inventory Summary (CSV)</button>
               <button type="button" onClick={exportTransactions}>Export Transactions (CSV)</button>
               <button type="button" onClick={exportLowStock}>Export Low Stock (CSV)</button>
-              <button type="button" onClick={exportForecastPdf}>Export Forecast (PDF)</button>
+              <button type="button" onClick={exportForecastPdf}>Export Forecast Summary (PDF)</button>
             </div>
           </article>
 

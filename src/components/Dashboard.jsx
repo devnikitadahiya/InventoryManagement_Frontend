@@ -105,6 +105,10 @@ function Dashboard({ token, user, onLogout }) {
     return null;
   };
 
+  const lowStockItems = Number(dashboard?.low_stock_items || 0);
+  const outOfStockItems = Number(dashboard?.out_of_stock_items || 0);
+  const healthLabel = outOfStockItems > 0 ? 'Needs Attention' : lowStockItems > 0 ? 'Watchlist' : 'Healthy';
+
   return (
     <div className="dashboard-wrapper">
       <header className="topbar">
@@ -113,6 +117,12 @@ function Dashboard({ token, user, onLogout }) {
           <p className="sub-text">
             {user?.full_name ? `Welcome, ${user.full_name}` : 'Welcome'}
           </p>
+          <div className="topbar-meta">
+            <span className="role-chip">Role: {role}</span>
+            <span className={`health-chip ${healthLabel === 'Healthy' ? 'safe' : healthLabel === 'Watchlist' ? 'warning' : 'danger'}`}>
+              System: {healthLabel}
+            </span>
+          </div>
         </div>
         <button className="logout-btn" onClick={handleLogout}>Logout</button>
       </header>

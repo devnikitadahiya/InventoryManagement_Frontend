@@ -46,8 +46,15 @@ function LoginForm({ onLoginSuccess }) {
   return (
     <div className="login-wrapper">
       <div className="login-card">
+        <p className="eyebrow-text">Intelligent Inventory Suite</p>
         <h1>Smart Inventory</h1>
         <p className="sub-text">Login to access your dashboard</p>
+
+        <div className="login-highlights" aria-hidden="true">
+          <span>Forecast-driven alerts</span>
+          <span>Role-based workflows</span>
+          <span>Real-time stock visibility</span>
+        </div>
 
         <form onSubmit={handleSubmit} className="login-form">
           <label htmlFor="email">Email</label>
